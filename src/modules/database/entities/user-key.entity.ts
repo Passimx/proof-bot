@@ -29,9 +29,6 @@ export class UserKeyEntity {
   @Column({ name: 'tariff_id', type: 'uuid' })
   readonly tariffId: string;
 
-  @Column({ name: 'expiration_days', type: 'int' })
-  readonly expirationDays: number;
-
   @Column({ name: 'expires_at', nullable: true, type: 'timestamp' })
   readonly expiresAt: Date;
 
@@ -45,9 +42,6 @@ export class UserKeyEntity {
 
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;
-
-  @Column({ name: 'vpn_username', type: 'varchar', length: 64, unique: true })
-  readonly vpnUsername: string;
 
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

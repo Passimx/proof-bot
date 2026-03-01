@@ -199,6 +199,7 @@ export class TelegramService {
 
     const keys = await this.em.find(UserKeyEntity, {
       where: { userId: user.id },
+      relations: ['tariff'],
       order: { createdAt: 'DESC' },
       take: 10,
     });
@@ -208,9 +209,24 @@ export class TelegramService {
     if (!keys.length) {
       text += 'У тебя пока нет активных ключей.';
     } else {
-      const now = new Date();
-      type IKRows = Parameters<typeof Markup.inlineKeyboard>[0];
-      const buttons: IKRows = [];
+      const keyRows = keys.map((k, index) => {
+        const base = k.expiresAt ? new Date(k.expiresAt) : new Date();
+        const renewedAt = new Date(base);
+        renewedAt.setDate(
+          renewedAt.getDate() + (k.tariff?.expirationDays ?? 0),
+        );
+        const dateStr = renewedAt.toLocaleDateString('ru-RU', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        return [
+          Markup.button.callback(
+            `🔄 Продлить ключ ${index + 1} (Продлить до ${dateStr})`,
+            `RENEW:${k.id}`,
+          ),
+        ];
+      });
       text += keys
         .map((k, index) => {
           const statusMap: Record<string, string> = {
@@ -227,20 +243,6 @@ export class TelegramService {
               day: '2-digit',
             });
           const trafficText = 'Безлимит';
-          const isExpired =
-            k.status === 'expired' ||
-            (k.expiresAt && new Date(k.expiresAt) < now);
-
-          // Продление для Hysteria
-          if (isExpired) {
-            (buttons as unknown[]).push([
-              Markup.button.callback(
-                `🔄 Продлить ключ ${index + 1}`,
-                `RENEW:${k.id}`,
-              ),
-            ]);
-          }
-
           return (
             `${index + 1}) [${k.protocol}] <code>${k.key}</code>\n` +
             `Статус: ${statusText}\n` +
@@ -250,16 +252,13 @@ export class TelegramService {
         })
         .join('\n');
 
-      if (buttons.length > 0) {
-        (buttons as unknown[]).push([this.backToProfileButton]);
-        await ctx
-          .editMessageText(text, {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard(buttons),
-          })
-          .catch(() => {});
-        return;
-      }
+      await ctx
+        .editMessageText(text, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([...keyRows, [this.backToProfileButton]]),
+        })
+        .catch(() => {});
+      return;
     }
 
     await ctx
@@ -691,6 +690,7 @@ export class TelegramService {
         await ctx
           .editMessageText(`❌ ${result.error}`, {
             ...Markup.inlineKeyboard([
+              [Markup.button.callback('💸 Пополнить баланс', 'BTN_BALANCE')],
               [Markup.button.callback('⬅️ Назад', 'BTN_5')],
             ]),
           })
@@ -727,6 +727,7 @@ export class TelegramService {
         await ctx
           .editMessageText(`❌ ${result.error}`, {
             ...Markup.inlineKeyboard([
+              [Markup.button.callback('💸 Пополнить баланс', 'BTN_BALANCE')],
               [Markup.button.callback('⬅️ Назад', 'BTN_9')],
             ]),
           })

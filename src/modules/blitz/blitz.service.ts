@@ -115,7 +115,7 @@ export class BlitzService {
   }
 
   async editUser(params: {
-    username: string;
+    userId: string;
     expirationDays?: number;
     renewCreationDate?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
@@ -129,7 +129,7 @@ export class BlitzService {
       }
 
       const res = await fetch(
-        `${this.baseUrl}/users/${encodeURIComponent(params.username)}`,
+        `${this.baseUrl}/users/${encodeURIComponent(params.userId)}`,
         {
           method: 'PATCH',
           headers: this.headers,

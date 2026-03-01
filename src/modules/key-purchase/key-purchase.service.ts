@@ -111,10 +111,8 @@ export class KeyPurchaseService {
           userId: user.id,
           serverId: amKey.serverId,
           tariffId: tariff.id,
-          expirationDays: tariff.expirationDays,
           expiresAt,
           status: 'active',
-          vpnUsername: amKey.id,
         });
       } else {
         const username = crypto.randomUUID().replace(/-/g, '');
@@ -151,10 +149,8 @@ export class KeyPurchaseService {
           userId: user.id,
           serverId: null,
           tariffId: tariff.id,
-          expirationDays: tariff.expirationDays,
           expiresAt,
           status: 'active',
-          vpnUsername: username,
         });
       }
 
@@ -311,7 +307,7 @@ export class KeyPurchaseService {
         }
 
         const editResult = await this.blitzService.editUser({
-          username: vpnKey.vpnUsername,
+          userId: vpnKey.userId,
           expirationDays: tariff.expirationDays,
           renewCreationDate: true,
         });
@@ -334,7 +330,10 @@ export class KeyPurchaseService {
         }
       }
 
-      const expiresAt = new Date();
+      const base = vpnKey.expiresAt
+        ? new Date(vpnKey.expiresAt)
+        : new Date();
+      const expiresAt = new Date(base);
       expiresAt.setDate(expiresAt.getDate() + tariff.expirationDays);
 
       await qr.manager
@@ -342,7 +341,6 @@ export class KeyPurchaseService {
         .update(UserKeyEntity)
         .set({
           expiresAt,
-          expirationDays: tariff.expirationDays,
           status: 'active' as const,
         })
         .where('id = :id', { id: vpnKey.id })
