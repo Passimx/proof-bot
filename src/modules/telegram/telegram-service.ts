@@ -257,7 +257,8 @@ export class TelegramService {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([...keyRows, [this.backToProfileButton]]),
         })
-        .catch(() => {});
+        .catch((e) => console.log(e));
+      // .catch(() => {});
       return;
     }
 
@@ -266,7 +267,8 @@ export class TelegramService {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([[this.backToProfileButton]]),
       })
-      .catch(() => {});
+      .catch((e) => console.log(e));
+    // .catch(() => {});
   };
 
   onBtn7 = async (ctx: Context) => {
