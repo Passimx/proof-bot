@@ -207,8 +207,7 @@ export class TelegramService {
     const visibleKeys = keys.filter(
       (k) =>
         !(
-          k.tariff?.id === Envs.telegram.trialTariffId &&
-          k.status === 'expired'
+          k.tariff?.id === Envs.telegram.trialTariffId && k.status === 'expired'
         ),
     );
 
