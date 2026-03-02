@@ -29,13 +29,17 @@ export class TelegramService {
   ) {}
 
   private readonly initMenu = Markup.inlineKeyboard([
-    Markup.button.callback('👤 Профиль', 'BTN_1'),
-    Markup.button.callback('📖 Инструкция', 'BTN_4'),
-    Markup.button.url('👩‍💻 Поддержка', 'https://t.me/Pro1ootit'),
-    // Markup.button.url(
-    //   '📄 Пользовательское соглашение',
-    //   'https://passimx.ru/terms/',
-    // ),
+    [
+      Markup.button.callback('👤 Профиль', 'BTN_1'),
+      Markup.button.callback('📖 Инструкция', 'BTN_4'),
+      Markup.button.url('👩‍💻 Поддержка', 'https://t.me/Pro1ootit'),
+    ],
+    [
+      Markup.button.url(
+        '📄 Пользовательское соглашение',
+        'https://passimx.ru/info/ru/vpn-user-agreement.html',
+      ),
+    ],
   ]);
 
   private readonly backToMenuButton = Markup.button.callback(
