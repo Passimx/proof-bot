@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import crypto from 'node:crypto';
 import { DataSource } from 'typeorm';
+import { Envs } from '../../common/env/envs';
 import { UserEntity } from '../database/entities/user.entity';
 import { TariffEntity } from '../database/entities/tariff.entity';
 import { PaymentsEntity } from '../database/entities/balance-debit.entity';
@@ -289,6 +290,12 @@ export class KeyPurchaseService {
       }
 
       const tariff = vpnKey.tariff;
+      if (tariff.id === Envs.telegram.trialTariffId) {
+        return {
+          ok: false,
+          error: 'Пробный ключ нельзя продлевать. Оформите платный тариф.',
+        };
+      }
       let finalPrice = Number(tariff.price);
       let appliedPromo: PromoCodeEntity | null = null;
 

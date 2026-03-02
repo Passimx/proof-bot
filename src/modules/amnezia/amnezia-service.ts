@@ -219,7 +219,7 @@ export class AmneziaService {
     const nowPlusOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const users = await this.em.find(UserEntity, {
-      relations: ['keys'],
+      relations: ['keys', 'keys.tariff'],
       where: {
         keys: { status: 'active', expiresAt: LessThanOrEqual(nowPlusOneDay) },
       },

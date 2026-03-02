@@ -204,31 +204,44 @@ export class TelegramService {
       take: 10,
     });
 
+    const visibleKeys = keys.filter(
+      (k) =>
+        !(
+          k.tariff?.id === Envs.telegram.trialTariffId &&
+          k.status === 'expired'
+        ),
+    );
+
     let text = '<b>🔑 Мои ключи</b>\n\n';
 
-    if (!keys.length) {
+    if (!visibleKeys.length) {
       text += 'У тебя пока нет активных ключей.';
     } else {
-      const keyRows = keys.map((k, index) => {
-        const base = k.expiresAt ? new Date(k.expiresAt) : new Date();
-        const renewedAt = new Date(base);
-        renewedAt.setDate(
-          renewedAt.getDate() + (k.tariff?.expirationDays ?? 0),
-        );
-        const dateStr = renewedAt.toLocaleDateString('ru-RU', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
+      const indexedKeys = visibleKeys.map((k, index) => ({ k, index }));
+
+      const keyRows = indexedKeys
+        .filter(({ k }) => k.tariff?.id !== Envs.telegram.trialTariffId)
+        .map(({ k, index }) => {
+          const base = k.expiresAt ? new Date(k.expiresAt) : new Date();
+          const renewedAt = new Date(base);
+          renewedAt.setDate(
+            renewedAt.getDate() + (k.tariff?.expirationDays ?? 0),
+          );
+          const dateStr = renewedAt.toLocaleDateString('ru-RU', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          });
+          return [
+            Markup.button.callback(
+              `🔄 Продлить ключ ${index + 1} (Продлить до ${dateStr})`,
+              `RENEW:${k.id}`,
+            ),
+          ];
         });
-        return [
-          Markup.button.callback(
-            `🔄 Продлить ключ ${index + 1} (Продлить до ${dateStr})`,
-            `RENEW:${k.id}`,
-          ),
-        ];
-      });
-      text += keys
-        .map((k, index) => {
+
+      text += indexedKeys
+        .map(({ k, index }) => {
           const statusMap: Record<string, string> = {
             active: 'Активен',
             expired: 'Истёк',
@@ -944,12 +957,14 @@ export class TelegramService {
       user.chatId,
       `Срок действия ключа подходит к концу.\nБаланс: ${user.balance}`,
       Markup.inlineKeyboard([
-        ...user.keys.map((key, index) => [
-          Markup.button.callback(
-            `🔄 Продлить ключ ${index + 1}`,
-            `RENEW:${key.id}`,
-          ),
-        ]),
+        ...user.keys
+          .filter((key) => key.tariff?.id !== Envs.telegram.trialTariffId)
+          .map((key, index) => [
+            Markup.button.callback(
+              `🔄 Продлить ключ ${index + 1}`,
+              `RENEW:${key.id}`,
+            ),
+          ]),
         [this.backToProfileButton],
       ]),
     );
