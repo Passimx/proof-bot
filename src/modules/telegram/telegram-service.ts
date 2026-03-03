@@ -30,7 +30,7 @@ export class TelegramService {
 
   private readonly initMenu = Markup.inlineKeyboard([
     [
-      Markup.button.callback('👤 Профиль', 'BTN_1'),
+      Markup.button.callback('🌐️ Меню', 'BTN_1'),
       Markup.button.callback('📖 Инструкция', 'BTN_4'),
       Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx'),
     ],
@@ -351,7 +351,7 @@ export class TelegramService {
     await ctx
       .editMessageText('💳 <b>Введите сумму (руб.)</b>:', {
         parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([[this.backToProfileButton]]),
+        ...Markup.inlineKeyboard([[], [], [this.backToProfileButton]]),
       })
       .catch(() => {});
   };
