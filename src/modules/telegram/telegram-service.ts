@@ -54,7 +54,12 @@ export class TelegramService {
 
   private readonly backToPayWaysButton = Markup.button.callback(
     '⬅️ Назад',
-    'BTN_7',
+    'ADD_BALANCE',
+  );
+
+  private readonly backToSetAmountButton = Markup.button.callback(
+    '⬅️ Назад',
+    'BTN_BALANCE',
   );
 
   private readonly backToTariffsButton = Markup.button.callback(
@@ -92,7 +97,6 @@ export class TelegramService {
     this.bot.action('BTN_2', this.onBtn2);
     this.bot.action('BTN_4', this.onBtn4);
     this.bot.action('BTN_5', this.onBtn5);
-    this.bot.action('BTN_7', this.onBtn7);
     this.bot.action('BTN_8', this.onBtn8);
     this.bot.action('BTN_9', this.onBtn9);
     this.bot.action('BTN_10', this.onBtn10);
@@ -103,6 +107,7 @@ export class TelegramService {
     this.bot.action('BTN_16', this.onBtn16);
     this.bot.action('BTN_17', this.onBtn17);
     this.bot.action('BTN_BALANCE', this.onBalance);
+    this.bot.action('ADD_BALANCE', this.onAddBalance);
     this.bot.action(/^T:[\w-]+$/, this.onTariffSelect);
     this.bot.action(/^PROMO:([\w-]+)$/, this.onPromoClick);
     this.bot.action(/^BUY:[\w-]+$/, this.onBuyTariff);
@@ -111,6 +116,7 @@ export class TelegramService {
     this.bot.action(/^BUY_KEY:([\w-]+)$/, this.onBuyTariff);
     this.bot.action(/^RENEW:([\w-]+)$/, this.onRenewKey);
     this.bot.action(/^PROMO_KEY:([\w-]+)$/, this.onRenewPromo);
+    this.bot.action(/^BUTTON_MONEY:([\w-]+)$/, this.onSetButtonMoney);
     this.bot.on('text', this.onText);
     void this.bot.launch();
   }
@@ -287,60 +293,12 @@ export class TelegramService {
     // .catch(() => {});
   };
 
-  onBtn7 = async (ctx: Context) => {
+  onSetButtonMoney = async (ctx: Context) => {
     ctx.answerCbQuery().catch(() => {});
-    const telegramId = ctx?.from?.id;
-    const user = await this.em.findOne(UserEntity, {
-      where: { telegramId },
-    });
-    if (!user) return;
-    const amount = this.amountMap.get(user.telegramId!);
-    if (amount === undefined) return;
-    const result = await this.yookassaBalanceService.createBalancePaymentLink(
-      user.id,
-      amount,
-    );
-    await ctx
-      .editMessageText(
-        `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:',
-        Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              `💎 TON (+${Envs.crypto.allowance * 100}%)`,
-              'BTN_8',
-            ),
-            // Markup.button.callback(
-            //   `◈ Ethereum (+${Envs.crypto.allowance * 100}%)`,
-            //   'BTN_10',
-            // ),
-          ],
-          // [
-          //   Markup.button.callback(
-          //     `🔴 Tron (+${Envs.crypto.allowance * 100}%)`,
-          //     'BTN_14',
-          //   ),
-          //   Markup.button.callback(
-          //     `🟪 Solana (+${Envs.crypto.allowance * 100}%)`,
-          //     'BTN_15',
-          //   ),
-          // ],
-          // [
-          //   Markup.button.callback(
-          //     `🟨 BSC (+${Envs.crypto.allowance * 100}%)`,
-          //     'BTN_16',
-          //   ),
-          //   Markup.button.callback(
-          //     `₿ Bitcoin (+${Envs.crypto.allowance * 100}%)`,
-          //     'BTN_17',
-          //   ),
-          // ],
-          result.ok
-            ? [Markup.button.url('💳 YooKassa', result.paymentUrl)]
-            : [],
-          [this.backToProfileButton],
-        ]),
-      )
-      .catch(() => {});
+    const callbackData = (ctx.callbackQuery as { data?: string })?.data ?? '';
+    const amount = Number(callbackData.replace(/^(BUTTON_MONEY):/, ''));
+    this.amountMap.set(ctx.from!.id, amount);
+    await this.onAddBalance(ctx);
   };
 
   onBalance = async (ctx: Context) => {
@@ -351,7 +309,17 @@ export class TelegramService {
     await ctx
       .editMessageText('💳 <b>Введите сумму (руб.)</b>:', {
         parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([[], [], [this.backToProfileButton]]),
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('50 руб', `BUTTON_MONEY:50`),
+            Markup.button.callback('100 руб', `BUTTON_MONEY:100`),
+          ],
+          [
+            Markup.button.callback('300 руб', `BUTTON_MONEY:300`),
+            Markup.button.callback('500 руб', `BUTTON_MONEY:500`),
+          ],
+          [this.backToProfileButton],
+        ]),
       })
       .catch(() => {});
   };
@@ -880,6 +848,43 @@ export class TelegramService {
     return true;
   }
 
+  onAddBalance = async (ctx: Context) => {
+    const telegramId = ctx?.from?.id;
+    if (!telegramId) return;
+    const amount = this.amountMap.get(telegramId);
+    if (!amount) return;
+    const user = await this.getUserByCtx(ctx);
+    if (!user) {
+      this.amountMap.delete(telegramId);
+      return;
+    }
+    const result = await this.yookassaBalanceService.createBalancePaymentLink(
+      user.id,
+      amount,
+    );
+    const text: string =
+      `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:';
+    const extra: any = Markup.inlineKeyboard([
+      result.ok
+        ? [
+            Markup.button.callback(
+              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
+              'BTN_8',
+            ),
+            Markup.button.url('💳 YooKassa', result.paymentUrl),
+          ]
+        : [
+            Markup.button.callback(
+              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
+              'BTN_8',
+            ),
+          ],
+      [this.backToSetAmountButton],
+    ]);
+
+    await ctx.reply(text, extra).catch(() => {});
+  };
+
   onText = async (ctx: Context) => {
     const telegramId = ctx?.from?.id;
     if (!telegramId) return;
@@ -910,33 +915,8 @@ export class TelegramService {
       return;
     }
     this.amountMap.set(telegramId, amount);
-    const result = await this.yookassaBalanceService.createBalancePaymentLink(
-      user.id,
-      amount,
-    );
 
-    await ctx
-      .reply(
-        `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:',
-        Markup.inlineKeyboard([
-          result.ok
-            ? [
-                Markup.button.callback(
-                  `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-                  'BTN_8',
-                ),
-                Markup.button.url('💳 YooKassa', result.paymentUrl),
-              ]
-            : [
-                Markup.button.callback(
-                  `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-                  'BTN_8',
-                ),
-              ],
-          [this.backToProfileButton],
-        ]),
-      )
-      .catch(() => {});
+    await this.onAddBalance(ctx);
   };
 
   public async sendMessageAddBalance(userId: string, balance: number) {
