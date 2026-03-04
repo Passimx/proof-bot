@@ -294,11 +294,15 @@ export class TelegramService {
   };
 
   onSetButtonMoney = async (ctx: Context) => {
+    const user = await this.getUserByCtx(ctx);
+    if (!user) return;
     ctx.answerCbQuery().catch(() => {});
     const callbackData = (ctx.callbackQuery as { data?: string })?.data ?? '';
     const amount = Number(callbackData.replace(/^(BUTTON_MONEY):/, ''));
     this.amountMap.set(ctx.from!.id, amount);
-    await this.onAddBalance(ctx);
+    const payload = await this.getPayloadForAddBalance(user);
+    if (!payload) return;
+    await ctx.editMessageText(payload.text, payload.extra);
   };
 
   onBalance = async (ctx: Context) => {
@@ -851,38 +855,15 @@ export class TelegramService {
   onAddBalance = async (ctx: Context) => {
     const telegramId = ctx?.from?.id;
     if (!telegramId) return;
-    const amount = this.amountMap.get(telegramId);
-    if (!amount) return;
     const user = await this.getUserByCtx(ctx);
     if (!user) {
       this.amountMap.delete(telegramId);
       return;
     }
-    const result = await this.yookassaBalanceService.createBalancePaymentLink(
-      user.id,
-      amount,
-    );
-    const text: string =
-      `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:';
-    const extra: any = Markup.inlineKeyboard([
-      result.ok
-        ? [
-            Markup.button.callback(
-              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-              'BTN_8',
-            ),
-            Markup.button.url('💳 YooKassa', result.paymentUrl),
-          ]
-        : [
-            Markup.button.callback(
-              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-              'BTN_8',
-            ),
-          ],
-      [this.backToSetAmountButton],
-    ]);
 
-    await ctx.reply(text, extra).catch(() => {});
+    const payload = await this.getPayloadForAddBalance(user);
+    if (!payload) return;
+    await ctx.editMessageText(payload.text, payload.extra);
   };
 
   onText = async (ctx: Context) => {
@@ -916,7 +897,9 @@ export class TelegramService {
     }
     this.amountMap.set(telegramId, amount);
 
-    await this.onAddBalance(ctx);
+    const payload = await this.getPayloadForAddBalance(user);
+    if (!payload) return;
+    await ctx.reply(payload.text, payload.extra);
   };
 
   public async sendMessageAddBalance(userId: string, balance: number) {
@@ -954,4 +937,34 @@ export class TelegramService {
       ]),
     );
   }
+
+  private getPayloadForAddBalance = async (user: UserEntity) => {
+    const amount = this.amountMap.get(user.telegramId!);
+    if (!amount) return;
+    const result = await this.yookassaBalanceService.createBalancePaymentLink(
+      user.id,
+      amount,
+    );
+    const text: string =
+      `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:';
+    const extra = Markup.inlineKeyboard([
+      result.ok
+        ? [
+            Markup.button.callback(
+              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
+              'BTN_8',
+            ),
+            Markup.button.url('💳 YooKassa', result.paymentUrl),
+          ]
+        : [
+            Markup.button.callback(
+              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
+              'BTN_8',
+            ),
+          ],
+      [this.backToSetAmountButton],
+    ]);
+
+    return { text, extra };
+  };
 }
