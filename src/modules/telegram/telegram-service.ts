@@ -199,9 +199,6 @@ export class TelegramService {
   };
 
   onAddKeyInstruction = async (ctx: Context) => {
-    const message = await ctx.reply('Загрузка видео...', {
-      disable_notification: true,
-    });
     const filePath = path.join(
       __dirname,
       '../',
@@ -215,7 +212,7 @@ export class TelegramService {
       this.addKeyVideoId ?? Input.fromLocalFile(filePath),
       {
         caption:
-          'Видео инструкция: Как подключить ключ\n\nНеобходимые шаги:\nМеню -> Приобрести ключ -> Выбор тарифа -> Купить -> Скопировать ключ -> Открыть скаченное приложение -> Вставить ключ -> Подключиться к впн',
+          'Видео инструкция: Как подключить ключ\n\nНеобходимые шаги:\nМеню -> Приобрести ключ -> Выбор тарифа -> Купить -> Скопировать ключ -> Открыть скаченное приложение -> Вставить ключ -> Подключиться к VPN',
         width: 720,
         height: 1280,
         supports_streaming: true,
@@ -228,15 +225,10 @@ export class TelegramService {
       this.addKeyVideoId = videoMessage.video.file_id;
     }
 
-    await this.bot.telegram.deleteMessage(ctx.chat!.id, message.message_id);
     await ctx.reply('Выбери действие:', this.initMenu).catch(() => {});
   };
 
   onAddBalanceInstruction = async (ctx: Context) => {
-    const message = await ctx.reply('Загрузка видео...', {
-      disable_notification: true,
-    });
-
     const filePath = path.join(
       __dirname,
       '../',
@@ -263,7 +255,6 @@ export class TelegramService {
       this.addBalanceVideoId = videoMessage.video.file_id;
     }
 
-    await this.bot.telegram.deleteMessage(ctx.chat!.id, message.message_id);
     await ctx.reply('Выбери действие:', this.initMenu).catch(() => {});
   };
 
@@ -1032,6 +1023,46 @@ export class TelegramService {
     );
   }
 
+  public async sendRequestToBuyKey(user: UserEntity) {
+    if (!user.chatId) return;
+
+    const filePath = path.join(
+      __dirname,
+      '../',
+      '../',
+      'public',
+      'media',
+      'welcome.mp4',
+    );
+
+    const videoMessage = await this.bot.telegram.sendVideo(
+      user.chatId,
+      this.welcomeVideoId ?? Input.fromLocalFile(filePath),
+      {
+        disable_notification: true,
+      },
+    );
+    if (!this.welcomeVideoId) {
+      console.log(`Set welcomeVideoId = '${videoMessage.video.file_id}'`);
+      this.welcomeVideoId = videoMessage.video.file_id;
+    }
+
+    await this.bot.telegram.sendMessage(
+      user.chatId,
+      '<b>Давайте подключим первое устройство</b>\n\n' +
+        'Это займет всего пару минут и откроет доступ к VPN.\n\n' +
+        '<b>Появились трудности с подключением?</b>\nПри любых вопросах вы можете обратиться в поддержку',
+      {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🌐️ Меню', 'BTN_1')],
+          [Markup.button.callback('📖 Инструкция', 'ON_INSTRUCTION')],
+          [Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx')],
+        ]),
+      },
+    );
+  }
+
   public async sendAlmostExpiredKey(user: UserEntity) {
     if (!user.chatId) return;
 
@@ -1049,6 +1080,19 @@ export class TelegramService {
           ]),
         [this.backToProfileButton],
       ]),
+    );
+  }
+
+  public async replyUsersWithoutKeys() {
+    const users = await this.em
+      .createQueryBuilder(UserEntity, 'users')
+      .leftJoin('users.keys', 'keys')
+      .groupBy('users.id')
+      .having('COUNT(keys.id) = 0')
+      .getMany();
+
+    await Promise.all(
+      users.map(async (user) => this.sendRequestToBuyKey(user)),
     );
   }
 
