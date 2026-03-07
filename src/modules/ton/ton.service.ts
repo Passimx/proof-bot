@@ -38,9 +38,6 @@ export class TonService {
 
     if (!transactions || !transactions.length) return;
 
-    const slice = transactions[0]?.inMessage?.body.beginParse();
-    if (!slice || slice.remainingBits < 32) return;
-
     const transactionEntities = await Promise.all(
       transactions.map(async (transaction) => {
         try {
@@ -59,7 +56,7 @@ export class TonService {
 
           return {
             id: transaction.lt,
-            amount: payload?.amount,
+            amount: payload?.amount * (1 + Envs.crypto.allowance),
             currency: payload?.currency,
             message: payload?.message,
             type: payload?.type,
@@ -93,10 +90,8 @@ export class TonService {
 
     await Promise.all(
       transactions.map(async (transaction) => {
-        let addBalance =
+        const addBalance =
           transaction.amount * priceCollection['the-open-network'].rub;
-        if (transaction.currency !== 'rub')
-          addBalance += addBalance * Envs.crypto.allowance;
 
         await this.em
           .createQueryBuilder()
