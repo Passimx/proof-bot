@@ -1060,6 +1060,9 @@ export class TelegramService {
     await this.bot.telegram.sendMessage(user.chatId, '<b>MARCH8</b>', {
       parse_mode: 'HTML',
     });
+    await this.bot.telegram.sendMessage(user.chatId, 'Выберите действие:', {
+      ...this.initMenu,
+    });
   }
 
   public async sendRequestToBuyKey(user: UserEntity) {
