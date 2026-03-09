@@ -1,15 +1,24 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
 import { UserEntity } from './user.entity';
 import { ChatEntity } from './chat.entity';
 import { MessageEditHistoryEntity } from './message-edit-history.entity';
 
 @Entity({ name: 'messages' })
+@Unique(['chatId', 'messageId'])
 export class MessageEntity {
-  @Column({ name: 'id', type: 'varchar', primary: true, length: 2 ** 4 })
-  readonly id: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id' })
+  readonly id: string;
 
-  @Column({ name: 'text', type: 'varchar', length: 2 ** 10 })
-  readonly text: string;
+  @Column({ name: 'message_id', type: 'varchar', length: 2 ** 4 })
+  readonly messageId: number;
 
   @Column({ name: 'user_id', type: 'bigint' })
   readonly userId: number;
@@ -17,13 +26,8 @@ export class MessageEntity {
   @Column({ name: 'chat_id', type: 'varchar', length: 2 ** 4 })
   readonly chatId: number;
 
-  @Column({
-    name: 'reply_to_message_id',
-    type: 'varchar',
-    length: 2 ** 4,
-    nullable: true,
-  })
-  readonly replyToMessageId: number;
+  @Column({ name: 'reply_to_message_id', nullable: true })
+  readonly replyToMessageId: string;
 
   @Column({ name: 'created_at', type: 'timestamptz' })
   readonly createdAt: Date;
