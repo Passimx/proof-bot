@@ -3,13 +3,12 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { UserEntity } from './user.entity';
 import { ChatEntity } from './chat.entity';
-import { MessageEditHistoryEntity } from './message-edit-history.entity';
+import { MessageType } from '../../telegram/types/message.type';
 
 @Entity({ name: 'messages' })
 @Unique(['chatId', 'messageId'])
@@ -26,14 +25,11 @@ export class MessageEntity {
   @Column({ name: 'chat_id', type: 'varchar', length: 2 ** 4 })
   readonly chatId: number;
 
-  @Column({ name: 'reply_to_message_id', nullable: true })
-  readonly replyToMessageId: string;
-
   @Column({ name: 'created_at', type: 'timestamptz' })
   readonly createdAt: Date;
 
-  @Column({ name: 'edit_date', type: 'timestamptz', nullable: true })
-  readonly editDate: Date;
+  @Column({ name: 'info', type: 'jsonb', nullable: true })
+  readonly info: Partial<MessageType>[];
 
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
@@ -42,14 +38,4 @@ export class MessageEntity {
   @ManyToOne(() => ChatEntity, (chat) => chat.messages)
   @JoinColumn({ name: 'chat_id' })
   readonly chat: ChatEntity;
-
-  @ManyToOne(() => MessageEntity)
-  @JoinColumn({ name: 'reply_to_message_id' })
-  readonly replyToMessage: MessageEntity;
-
-  @OneToMany(
-    () => MessageEditHistoryEntity,
-    (messageEditHistory) => messageEditHistory.message,
-  )
-  readonly messageEditHistories: MessageEditHistoryEntity[];
 }

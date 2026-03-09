@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: passimx-proof-bot-postgres
+    container_name: keep-chats-bot-postgres
     restart: always
     env_file: .env
     environment:
@@ -22,7 +22,7 @@ services:
 
   app:
     image: ${DOCKER_IMAGE:-ghcr.io/passimx/proof-bot:latest}
-    container_name: passimx-proof-bot
+    container_name: keep-chats-bot
     restart: always
     env_file: .env
     environment:

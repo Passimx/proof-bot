@@ -17,7 +17,7 @@ export type MessageType = {
   left_chat_member?: FromType;
   new_chat_participant?: FromType;
   new_chat_member?: FromType;
-  document: DocumentType;
+  document?: DocumentType;
   text?: string;
   caption?: string;
   voice?: VoiceType;

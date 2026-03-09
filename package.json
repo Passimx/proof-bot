@@ -1,6 +1,6 @@
 {
-  "name": "PassimX",
-  "description": "Telegram bot to keep chat",
+  "name": "keep_chats",
+  "description": "Telegram bot to keep chats",
   "version": "1.0.0",
   "author": "",
   "private": true,

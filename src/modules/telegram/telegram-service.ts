@@ -6,12 +6,10 @@ import { EntityManager } from 'typeorm';
 import { Envs } from '../../common/env/envs';
 import { UserEntity } from '../database/entities/user.entity';
 import { ChatEntity } from '../database/entities/chat.entity';
-import { MessageEntity } from '../database/entities/message.entity';
 import { MessageType } from './types/message.type';
 import { EditedMessageType } from './types/edited-message.type';
-import { MessageEditHistoryEntity } from '../database/entities/message-edit-history.entity';
 import { UpdateMyChatMemberType } from './types/update-my-chat-member.type';
-import { DocumentEntity } from '../database/entities/document.entity';
+import { MessageEntity } from '../database/entities/message.entity';
 
 @Injectable()
 export class TelegramService {
@@ -40,165 +38,67 @@ export class TelegramService {
 
   onMessage = async (ctx: Context) => {
     const message = ctx.message as unknown as MessageType;
-    console.log(message);
-    const fromUser = message.from;
-    const chat = message.chat;
-    const title = chat.type === 'private' ? chat.username : chat.title;
-    const document = message.document;
-    const replyMessage = message.reply_to_message;
-    let replyMessageDB: MessageEntity | undefined;
+    const { message_id, chat, from, date, ...info } = message;
 
-    if (replyMessage) {
-      const context = { message: replyMessage } as unknown as Context;
+    if (info.reply_to_message) {
+      const context = { message: info.reply_to_message } as unknown as Context;
       await this.onMessage(context);
-      replyMessageDB = await this.em.findOneOrFail(MessageEntity, {
-        where: {
-          chatId: replyMessage.chat.id,
-          messageId: replyMessage.message_id,
-        },
-      });
     }
 
     await this.em.upsert(
       UserEntity,
-      { id: fromUser.id, userName: fromUser.username },
+      { id: from.id, userName: from.username },
       { conflictPaths: ['id'] },
     );
 
-    const chatEntity = {
-      id: chat.id,
-      title: title,
-      type: chat.type,
-    };
-    await this.em.upsert(ChatEntity, chatEntity, { conflictPaths: ['id'] });
+    await this.em.upsert(
+      ChatEntity,
+      {
+        id: chat.id,
+        title: chat.type === 'private' ? chat.username : chat.title,
+        type: chat.type,
+      },
+      { conflictPaths: ['id'] },
+    );
 
     const chatDb = await this.em.findOneOrFail(ChatEntity, {
       where: { id: chat.id },
       relations: ['users'],
     });
 
-    if (!chatDb.users.find((user) => user.id === fromUser.id)) {
+    await this.em.insert(MessageEntity, {
+      messageId: message_id,
+      userId: from.id,
+      chatId: message.chat.id,
+      createdAt: new Date(date),
+      info: [info],
+    });
+
+    if (!chatDb.users.find((user) => user.id === from.id)) {
       const userDb = await this.em.findOneOrFail(UserEntity, {
-        where: { id: fromUser.id },
+        where: { id: from.id },
       });
       chatDb.users.push(userDb);
       await this.em.save(chatDb);
-    }
-
-    if (
-      message.left_chat_member ||
-      message.left_chat_participant ||
-      message.new_chat_member ||
-      message.new_chat_participant
-    )
-      return;
-
-    await this.em.upsert(
-      MessageEntity,
-      {
-        messageId: message.message_id,
-        userId: fromUser.id,
-        chatId: message.chat.id,
-        replyToMessageId: replyMessageDB?.id,
-        createdAt: new Date(message.date),
-        editDate: message?.edit_date ? new Date(message.date) : undefined,
-      },
-      { conflictPaths: ['chatId', 'messageId'] },
-    );
-
-    if (!message.edit_date) {
-      const messageDb = await this.em.findOneOrFail(MessageEntity, {
-        where: { chatId: chat.id, messageId: message.message_id },
-      });
-
-      await this.em.upsert(
-        MessageEditHistoryEntity,
-        {
-          text: message.text ?? message.caption,
-          messageId: messageDb.id,
-          editDate: new Date(message.date),
-        },
-        { conflictPaths: ['messageId', 'editDate'] },
-      );
-    }
-
-    if (document) {
-      const messageDb = await this.em.findOneOrFail(MessageEntity, {
-        where: { chatId: message.chat.id, messageId: message.message_id },
-      });
-
-      const messageEditHistoryDB = await this.em.findOneOrFail(
-        MessageEditHistoryEntity,
-        {
-          where: { messageId: messageDb.id },
-          order: { editDate: 'DESC' },
-        },
-      );
-
-      await this.em.upsert(
-        DocumentEntity,
-        {
-          fileId: document.file_id,
-          fileUniqueId: document.file_unique_id,
-          fileName: document.file_name,
-          mimeType: document.mime_type,
-          fileSize: document.file_size,
-          messageEditHistoryId: messageEditHistoryDB.id,
-          thumb: document.thumb,
-        },
-        { conflictPaths: ['fileId', 'fileUniqueId'] },
-      );
     }
   };
 
   onEditMessage = async (ctx: Context) => {
     const update = ctx.update as unknown as EditedMessageType;
     const editedMessage = update.edited_message;
-    const chat = update.edited_message.chat;
-    const document = editedMessage.document;
-
-    const context = { message: editedMessage } as unknown as Context;
-    await this.onMessage(context);
+    const { message_id, chat, from, date, ...info } = editedMessage;
 
     const messageDb = await this.em.findOneOrFail(MessageEntity, {
-      where: { messageId: editedMessage.message_id, chatId: chat.id },
+      where: {
+        messageId: message_id,
+        chatId: chat.id,
+        userId: from.id,
+        createdAt: new Date(date),
+      },
     });
 
-    await this.em.upsert(
-      MessageEditHistoryEntity,
-      {
-        text: editedMessage.caption ?? editedMessage.text,
-        messageId: messageDb.id,
-        editDate: new Date(editedMessage.edit_date!),
-      },
-      { conflictPaths: ['messageId', 'editDate'] },
-    );
-
-    if (document) {
-      const messageEditHistoryDB = await this.em.findOneOrFail(
-        MessageEditHistoryEntity,
-        {
-          where: {
-            messageId: messageDb.id,
-            editDate: new Date(editedMessage.edit_date!),
-          },
-        },
-      );
-
-      await this.em.upsert(
-        DocumentEntity,
-        {
-          fileId: document.file_id,
-          fileUniqueId: document.file_unique_id,
-          fileName: document.file_name,
-          mimeType: document.mime_type,
-          fileSize: document.file_size,
-          messageEditHistoryId: messageEditHistoryDB.id,
-          thumb: document.thumb,
-        },
-        { conflictPaths: ['fileId', 'fileUniqueId'] },
-      );
-    }
+    messageDb.info.push(info);
+    await this.em.save(messageDb);
   };
 
   onJoinChat = async (ctx: Context) => {
@@ -256,8 +156,6 @@ export class TelegramService {
       await this.em.save(chatDb);
     }
 
-    chatDb.users.push(this.botInfo);
-
     const textMessage = await ctx.reply(words['start'], { parse_mode: 'HTML' });
 
     await this.em.insert(MessageEntity, {
@@ -265,23 +163,8 @@ export class TelegramService {
       userId: from?.id,
       chatId: textMessage.chat.id,
       createdAt: new Date(textMessage.date),
+      info: [{ text: textMessage.text }],
     });
-
-    if (!textMessage.edit_date) {
-      const messageDb = await this.em.findOneOrFail(MessageEntity, {
-        where: { chatId: chat?.id, messageId: textMessage.message_id },
-      });
-
-      await this.em.upsert(
-        MessageEditHistoryEntity,
-        {
-          text: textMessage.text,
-          messageId: messageDb.id,
-          editDate: new Date(textMessage.date),
-        },
-        { conflictPaths: ['messageId', 'editDate'] },
-      );
-    }
   };
 
   private async getMe() {
