@@ -1,7 +1,7 @@
 {
   "name": "keep_chats",
   "description": "Telegram bot to keep chats",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "",
   "private": true,
   "license": "MIT LICENSE",
