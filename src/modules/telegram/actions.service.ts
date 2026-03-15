@@ -62,8 +62,6 @@ export class ActionsService {
     const update = ctx.update as unknown as EditedMessageType;
     if (!update.callback_query) return;
 
-    console.log(update);
-
     const { message_id, chat, from, date } = update.callback_query.message;
     const messageDb = await this.em.findOneOrFail(MessageEntity, {
       where: {
@@ -120,15 +118,6 @@ export class ActionsService {
     const from = ctx.from as FromType;
     const chat = ctx?.chat;
 
-    const message1 = await ctx.reply(this.t(ctx, 'start'), {
-      parse_mode: 'HTML',
-      disable_notification: true,
-    });
-    const message2 = await ctx.reply(`${this.t(ctx, 'select_action')}:`, {
-      parse_mode: 'HTML',
-      ...this.mainMenu(ctx),
-    });
-
     await this.em.upsert(
       UserEntity,
       {
@@ -163,9 +152,20 @@ export class ActionsService {
       await this.em.save(chatDb);
     }
 
-    await next();
-    await this.onMessage({ message: message1 } as Context);
-    await this.onMessage({ message: message2 } as Context);
+    if (chat?.type === 'private') {
+      const message1 = await ctx.reply(this.t(ctx, 'start'), {
+        parse_mode: 'HTML',
+        disable_notification: true,
+      });
+      const message2 = await ctx.reply(`${this.t(ctx, 'select_action')}:`, {
+        parse_mode: 'HTML',
+        ...this.mainMenu(ctx),
+      });
+
+      await next();
+      await this.onMessage({ message: message1 } as Context);
+      await this.onMessage({ message: message2 } as Context);
+    } else await next();
   };
 
   onJoinChat = async (ctx: Context) => {
