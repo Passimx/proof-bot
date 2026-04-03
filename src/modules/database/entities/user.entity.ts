@@ -26,7 +26,7 @@ export class UserEntity {
   @Column({ name: 'first_name', type: 'varchar', length: 2 ** 6 })
   readonly firstName: string;
 
-  @Column({ name: 'user_name', type: 'varchar' })
+  @Column({ name: 'user_name', type: 'varchar', nullable: true })
   readonly userName: string;
 
   @Column({
